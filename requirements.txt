@@ -1,0 +1,10 @@
+streamlit>=1.36,<2.0
+SQLAlchemy>=2.0,<3.0
+pandas>=2.2,<3.0
+google-genai>=1.0,<2.0
+python-dotenv>=1.0,<2.0
+requests>=2.32,<3.0
+pydantic>=2.7,<3.0
+
+# Development / testing
+pytest>=8.2,<9.0
