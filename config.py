@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- API / モデル関連の定数 ---------------------------------------------------
-DEFAULT_GEMINI_MODEL: str = "gemini-1.5-flash"
+DEFAULT_GEMINI_MODEL: str = "gemini-2.5-flash"
 DEFAULT_DATABASE_URL: str = "sqlite:///x_search.db"
 DEFAULT_LOG_LEVEL: str = "INFO"
 
