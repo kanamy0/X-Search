@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from config import DEFAULT_MAX_RESULTS, X_USER_TWEETS_COUNT
+from config import DEFAULT_MAX_RESULTS, X_USER_TWEETS_COUNT, gender_label
 from database.repository import Repository
 from services.filter_service import FilterParser
 from services.gemini_service import GeminiParseError, GeminiService, GeminiServiceError
@@ -35,6 +35,8 @@ class Recommendation:
     match_rate: float
     summary: str
     common_interests: list[str]
+    gender: str = "unknown"
+    gender_confidence: float = 0.0
     analysis: dict[str, object] = field(default_factory=dict)
     latest_posts: list[str] = field(default_factory=list)
 
@@ -80,6 +82,7 @@ class AnalysisService:
         keywords: list[str],
         max_results: int = DEFAULT_MAX_RESULTS,
         filter_text: str = "",
+        gender: str | None = None,
     ) -> SearchOutcome:
         """キーワードから公開アカウントを検索・分析し、推薦一覧を返す。
 
@@ -87,6 +90,7 @@ class AnalysisService:
             keywords: 趣味キーワードのリスト。
             max_results: 検索で取得する最大投稿件数。
             filter_text: フォロワー数・投稿数などの自然文絞り込み条件。
+            gender: 推定性別による絞り込み("male"/"female"、None は絞り込みなし)。
 
         Returns:
             SearchOutcome: 一致率の高い順に並んだ推薦結果と警告。
@@ -100,6 +104,10 @@ class AnalysisService:
         if unparsed:
             outcome.warnings.append(
                 "解釈できなかった条件: " + " / ".join(unparsed)
+            )
+        if gender:
+            outcome.warnings.append(
+                f"性別で絞り込み: 推定性別が「{gender_label(gender)}」のアカウントのみ"
             )
 
         # 1) 入力キーワードを理想プロファイルへ変換する(キャッシュ利用)。
@@ -166,6 +174,17 @@ class AnalysisService:
                 continue
             if recommendation is not None:
                 outcome.recommendations.append(recommendation)
+
+        # 5) 推定性別による絞り込み(性別は分析結果から得られるため分析後に適用)。
+        if gender:
+            before = len(outcome.recommendations)
+            outcome.recommendations = [
+                rec for rec in outcome.recommendations if rec.gender == gender
+            ]
+            outcome.warnings.append(
+                f"推定性別「{gender_label(gender)}」で "
+                f"{before} 件中 {len(outcome.recommendations)} 件に絞り込みました。"
+            )
 
         outcome.recommendations.sort(key=lambda r: r.match_rate, reverse=True)
         return outcome
@@ -254,6 +273,8 @@ class AnalysisService:
             match_rate=round(match_rate, 1),
             summary=profile.summary,
             common_interests=common,
+            gender=profile.gender,
+            gender_confidence=round(profile.gender_confidence, 1),
             analysis=profile.model_dump(),
             latest_posts=posts_text[:X_USER_TWEETS_COUNT],
         )

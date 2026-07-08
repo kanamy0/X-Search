@@ -6,7 +6,9 @@ Gemini が返す特徴量 JSON の構造を型として表現し、
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from config import GENDER_UNKNOWN, GENDER_VALUES
 
 # メトリクス名 -> 日本語ラベル(フィルタ説明の生成に利用)。
 _METRIC_LABELS: dict[str, str] = {
@@ -103,6 +105,19 @@ class FeatureProfile(BaseModel):
     communication: dict[str, float] = Field(default_factory=dict)
     activity: dict[str, float] = Field(default_factory=dict)
     summary: str = ""
+
+    # 公開情報から推定した性別("male"/"female"/"unknown")と確信度(0-100)。
+    # 厳密な性別ではなく、あくまで文体・話題からの推定であることに注意。
+    gender: str = GENDER_UNKNOWN
+    gender_confidence: float = 0.0
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def _normalize_gender(cls, value: object) -> str:
+        """想定外の値は「不明」に正規化する。"""
+        if isinstance(value, str) and value.lower() in GENDER_VALUES:
+            return value.lower()
+        return GENDER_UNKNOWN
 
     def feature_dict(self) -> dict[str, float]:
         """カテゴリを平坦化した「ラベル -> スコア」の辞書を返す。
