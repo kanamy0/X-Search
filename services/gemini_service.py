@@ -12,6 +12,7 @@ from typing import Any
 from google import genai
 from pydantic import ValidationError
 
+from config import GEMINI_MAX_POST_CHARS, GEMINI_MAX_POSTS_FOR_ANALYSIS
 from services.schemas import FeatureProfile
 from utils.logger import get_logger
 
@@ -107,11 +108,11 @@ class GeminiService:
             response = self._client.models.generate_content(
                 model=self._model_name, contents=prompt
             )
+            text = response.text
         except Exception as exc:  # noqa: BLE001 - SDK 例外を一括で捕捉しログ化する
             logger.error("Gemini API call failed: %s", exc)
             raise GeminiServiceError(f"Gemini API 呼び出しに失敗しました: {exc}") from exc
 
-        text = getattr(response, "text", None)
         if not text:
             logger.error("Gemini returned empty response")
             raise GeminiParseError("Gemini から空の応答が返されました。")
@@ -119,8 +120,21 @@ class GeminiService:
 
     @staticmethod
     def _build_payload(profile_text: str, posts_text: list[str]) -> str:
-        """プロンプトへ埋め込む分析対象テキストを構築する。"""
-        posts_block = "\n".join(f"- {p}" for p in posts_text if p.strip())
+        """プロンプトへ埋め込む分析対象テキストを構築する。
+
+        トークン節約のため、投稿は件数・1 件あたりの文字数を上限でトリムする。
+        """
+        trimmed: list[str] = []
+        for post in posts_text:
+            text = post.strip()
+            if not text:
+                continue
+            if len(text) > GEMINI_MAX_POST_CHARS:
+                text = text[:GEMINI_MAX_POST_CHARS] + "…"
+            trimmed.append(text)
+            if len(trimmed) >= GEMINI_MAX_POSTS_FOR_ANALYSIS:
+                break
+        posts_block = "\n".join(f"- {p}" for p in trimmed)
         return (
             f"## プロフィール\n{profile_text or '(なし)'}\n\n"
             f"## 投稿\n{posts_block or '(なし)'}"
