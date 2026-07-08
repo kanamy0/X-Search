@@ -92,6 +92,33 @@ FILTER_QUALITATIVE_THRESHOLDS: dict[str, int] = {
     "posts": 1_000,
 }
 
+# --- 性別推定関連 -------------------------------------------------------------
+# 性別は厳密には不明であるため、Gemini が公開プロフィール・投稿の文体や
+# 話題から推定した値(確信度付き)を保持する。断定できない場合は「不明」。
+GENDER_MALE: str = "male"
+GENDER_FEMALE: str = "female"
+GENDER_UNKNOWN: str = "unknown"
+GENDER_VALUES: tuple[str, ...] = (GENDER_MALE, GENDER_FEMALE, GENDER_UNKNOWN)
+
+# 内部値 -> 日本語ラベル(UI 表示に利用)。
+GENDER_LABELS: dict[str, str] = {
+    GENDER_MALE: "男性",
+    GENDER_FEMALE: "女性",
+    GENDER_UNKNOWN: "不明",
+}
+
+# UI の性別セレクトボックス(表示ラベル -> 内部値、None は絞り込みなし)。
+GENDER_FILTER_CHOICES: dict[str, str | None] = {
+    "指定なし": None,
+    "男性": GENDER_MALE,
+    "女性": GENDER_FEMALE,
+}
+
+
+def gender_label(value: str) -> str:
+    """性別の内部値を日本語ラベルへ変換する(未知の値は「不明」)。"""
+    return GENDER_LABELS.get(value, GENDER_LABELS[GENDER_UNKNOWN])
+
 
 @dataclass(frozen=True)
 class Settings:

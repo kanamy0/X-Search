@@ -12,9 +12,11 @@ import streamlit as st
 
 from config import (
     DEFAULT_MAX_RESULTS,
+    GENDER_FILTER_CHOICES,
     X_SEARCH_MAX_RESULTS_LIMIT,
     X_SEARCH_MAX_RESULTS_MIN,
     Settings,
+    gender_label,
 )
 from services.analysis_service import AnalysisService, Recommendation, SearchOutcome
 
@@ -23,12 +25,12 @@ _STATE_RESULTS = "search_outcome"
 _STATE_SELECTED = "selected_user_id"
 
 
-def render_sidebar() -> tuple[list[str], int, str, bool]:
+def render_sidebar() -> tuple[list[str], int, str, str | None, bool]:
     """左側の検索条件フォームを描画する。
 
     Returns:
-        tuple[list[str], int, str, bool]:
-            (キーワード一覧, 取得件数, 絞り込み条件, 検索実行フラグ)。
+        tuple[list[str], int, str, str | None, bool]:
+            (キーワード一覧, 取得件数, 絞り込み条件, 推定性別, 検索実行フラグ)。
     """
     st.sidebar.header("検索条件")
     st.sidebar.caption("趣味・興味に近い公開アカウントを探します。")
@@ -46,6 +48,12 @@ def render_sidebar() -> tuple[list[str], int, str, bool]:
         placeholder="例: フォロワー1000人以上、投稿が多い人",
         help="フォロワー数・フォロー数・投稿数を自然文で指定できます。",
     )
+    gender_choice = st.sidebar.selectbox(
+        "性別(投稿から推定・任意)",
+        options=list(GENDER_FILTER_CHOICES.keys()),
+        index=0,
+        help="性別は厳密には不明なため、公開投稿・プロフィールから推定した値で絞り込みます。",
+    )
     max_results = st.sidebar.slider(
         "最大取得件数",
         min_value=X_SEARCH_MAX_RESULTS_MIN,
@@ -56,7 +64,8 @@ def render_sidebar() -> tuple[list[str], int, str, bool]:
     search_clicked = st.sidebar.button("検索", type="primary", use_container_width=True)
 
     keywords = _split_keywords(keywords_raw)
-    return keywords, max_results, filter_text.strip(), search_clicked
+    gender = GENDER_FILTER_CHOICES[gender_choice]
+    return keywords, max_results, filter_text.strip(), gender, search_clicked
 
 
 def render_results(outcome: SearchOutcome) -> None:
@@ -94,6 +103,13 @@ def render_detail(rec: Recommendation) -> None:
     col1.metric("フォロワー数", f"{rec.followers:,}")
     col2.metric("フォロー数", f"{rec.following:,}")
     col3.metric("投稿数", f"{rec.posts_count:,}")
+
+    st.metric(
+        "推定性別",
+        gender_label(rec.gender),
+        help=f"投稿・プロフィールからの推定(確信度 {rec.gender_confidence:.0f}%)",
+    )
+    st.caption("※ 性別は公開情報からの推定であり、厳密なものではありません。")
 
     st.subheader("プロフィール")
     st.write(rec.description or "(自己紹介なし)")
@@ -138,6 +154,7 @@ def run_search(
     keywords: list[str],
     max_results: int,
     filter_text: str = "",
+    gender: str | None = None,
 ) -> None:
     """検索を実行し、結果をセッションステートへ保存する。
 
@@ -146,9 +163,12 @@ def run_search(
         keywords: 検索キーワード。
         max_results: 最大取得件数。
         filter_text: フォロワー数・投稿数などの自然文絞り込み条件。
+        gender: 推定性別による絞り込み(None は絞り込みなし)。
     """
     with st.spinner("公開アカウントを検索・分析しています..."):
-        outcome = service.search_and_recommend(keywords, max_results, filter_text)
+        outcome = service.search_and_recommend(
+            keywords, max_results, filter_text, gender
+        )
     st.session_state[_STATE_RESULTS] = outcome
     st.session_state[_STATE_SELECTED] = None
 
@@ -192,6 +212,7 @@ def _render_card(rec: Recommendation) -> None:
             st.caption("共通趣味: " + " / ".join(rec.common_interests))
         st.caption(
             f"フォロワー数: {rec.followers:,} / 投稿数: {rec.posts_count:,}"
+            f" / 推定性別: {gender_label(rec.gender)}"
         )
 
         if st.button("詳細", key=f"detail_{rec.user_id}"):

@@ -27,6 +27,10 @@ _PROMPT_TEMPLATE = """あなたはSNSの公開情報から利用者の趣味・�
 - JSON 以外の文章・説明・コードブロック記号(```)は一切出力しないでください。
 - 各スコアは 0〜100 の整数または小数で表してください。
 - ゲームタイトルや関心の種類は分析対象から適切に判断して追加してください。
+- gender は公開プロフィールと投稿の文体・一人称・話題から推定してください。
+  値は "male"(男性)/"female"(女性)/"unknown"(判断できない)のいずれか。
+  確実な情報が無い場合は必ず "unknown" とし、断定を避けてください。
+- gender_confidence は gender 推定の確信度(0〜100)です。
 
 # 出力スキーマ
 {{
@@ -34,6 +38,8 @@ _PROMPT_TEMPLATE = """あなたはSNSの公開情報から利用者の趣味・�
   "contents": {{ "<関心の種類>": <score> }},
   "communication": {{ "social": <score>, "positive": <score>, "humor": <score> }},
   "activity": {{ "image_post_rate": <score>, "tweet_frequency": <score> }},
+  "gender": "<male|female|unknown>",
+  "gender_confidence": <score>,
   "summary": "<日本語の要約>"
 }}
 
