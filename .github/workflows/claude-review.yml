@@ -1,0 +1,39 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          prompt: |
+            あなたはStaff Software Engineerです。
+
+            以下をレビューしてください。
+
+            - バグ
+            - セキュリティ
+            - パフォーマンス
+            - 保守性
+            - 可読性
+            - テスト不足
+
+            Critical、High、Medium、Lowで重要度を付けてください。
