@@ -61,7 +61,7 @@ def main() -> None:
     settings = get_settings()
     pages.render_missing_keys_warning(settings)
 
-    keywords, max_results, search_clicked = pages.render_sidebar()
+    keywords, max_results, filter_text, search_clicked = pages.render_sidebar()
 
     service = _build_service(settings)
 
@@ -72,7 +72,7 @@ def main() -> None:
             st.warning("キーワードを 1 つ以上入力してください。")
         else:
             try:
-                pages.run_search(service, keywords, max_results)
+                pages.run_search(service, keywords, max_results, filter_text)
             except Exception as exc:  # noqa: BLE001 - UI では全例外を表示に変換する
                 logger.exception("Unexpected error during search")
                 st.error(f"予期しないエラーが発生しました: {exc}")

@@ -214,6 +214,7 @@ class XService:
             "description": user.get("description", ""),
             "followers": int(metrics.get("followers_count", 0)),
             "following": int(metrics.get("following_count", 0)),
+            "posts_count": int(metrics.get("tweet_count", 0)),
             "created_at": XService._parse_datetime(user.get("created_at")),
         }
 

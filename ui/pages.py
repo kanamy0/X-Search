@@ -23,11 +23,12 @@ _STATE_RESULTS = "search_outcome"
 _STATE_SELECTED = "selected_user_id"
 
 
-def render_sidebar() -> tuple[list[str], int, bool]:
+def render_sidebar() -> tuple[list[str], int, str, bool]:
     """左側の検索条件フォームを描画する。
 
     Returns:
-        tuple[list[str], int, bool]: (キーワード一覧, 取得件数, 検索実行フラグ)。
+        tuple[list[str], int, str, bool]:
+            (キーワード一覧, 取得件数, 絞り込み条件, 検索実行フラグ)。
     """
     st.sidebar.header("検索条件")
     st.sidebar.caption("趣味・興味に近い公開アカウントを探します。")
@@ -37,6 +38,13 @@ def render_sidebar() -> tuple[list[str], int, bool]:
         value="",
         height=160,
         placeholder="DQ10\nドラクエ10\nドレア\nパシャ\nハウジング",
+    )
+    filter_text = st.sidebar.text_area(
+        "絞り込み条件(自然文・任意)",
+        value="",
+        height=80,
+        placeholder="例: フォロワー1000人以上、投稿が多い人",
+        help="フォロワー数・フォロー数・投稿数を自然文で指定できます。",
     )
     max_results = st.sidebar.slider(
         "最大取得件数",
@@ -48,7 +56,7 @@ def render_sidebar() -> tuple[list[str], int, bool]:
     search_clicked = st.sidebar.button("検索", type="primary", use_container_width=True)
 
     keywords = _split_keywords(keywords_raw)
-    return keywords, max_results, search_clicked
+    return keywords, max_results, filter_text.strip(), search_clicked
 
 
 def render_results(outcome: SearchOutcome) -> None:
@@ -82,9 +90,10 @@ def render_detail(rec: Recommendation) -> None:
     st.header(f"{rec.name} (@{rec.username})")
     st.metric("一致率", f"{rec.match_rate:.1f}%")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     col1.metric("フォロワー数", f"{rec.followers:,}")
     col2.metric("フォロー数", f"{rec.following:,}")
+    col3.metric("投稿数", f"{rec.posts_count:,}")
 
     st.subheader("プロフィール")
     st.write(rec.description or "(自己紹介なし)")
@@ -124,16 +133,22 @@ def render_missing_keys_warning(settings: Settings) -> None:
         )
 
 
-def run_search(service: AnalysisService, keywords: list[str], max_results: int) -> None:
+def run_search(
+    service: AnalysisService,
+    keywords: list[str],
+    max_results: int,
+    filter_text: str = "",
+) -> None:
     """検索を実行し、結果をセッションステートへ保存する。
 
     Args:
         service: 分析サービス。
         keywords: 検索キーワード。
         max_results: 最大取得件数。
+        filter_text: フォロワー数・投稿数などの自然文絞り込み条件。
     """
     with st.spinner("公開アカウントを検索・分析しています..."):
-        outcome = service.search_and_recommend(keywords, max_results)
+        outcome = service.search_and_recommend(keywords, max_results, filter_text)
     st.session_state[_STATE_RESULTS] = outcome
     st.session_state[_STATE_SELECTED] = None
 
@@ -175,7 +190,9 @@ def _render_card(rec: Recommendation) -> None:
             st.write(rec.summary)
         if rec.common_interests:
             st.caption("共通趣味: " + " / ".join(rec.common_interests))
-        st.caption(f"フォロワー数: {rec.followers:,}")
+        st.caption(
+            f"フォロワー数: {rec.followers:,} / 投稿数: {rec.posts_count:,}"
+        )
 
         if st.button("詳細", key=f"detail_{rec.user_id}"):
             st.session_state[_STATE_SELECTED] = rec.user_id
